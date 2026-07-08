@@ -165,8 +165,8 @@ def admin_summary():
     if 'user_id' not in session or session.get('role') != 'Admin':
         return jsonify({"error": "Unauthorized"}), 401
 
-    conn = get_db()
     try:
+        conn = get_db()
         total_users = conn.execute(text("SELECT COUNT(*) FROM auth.users")).scalar() or 0
         total_classes = conn.execute(text("SELECT COUNT(*) FROM classes")).scalar() or 0
         total_uploads = conn.execute(text("SELECT COUNT(*) FROM hasil_penilaian")).scalar() or 0
@@ -190,8 +190,8 @@ def admin_get_users():
     if 'user_id' not in session or session.get('role') != 'Admin':
         return jsonify({"error": "Unauthorized"}), 401
 
-    conn = get_db()
     try:
+        conn = get_db()
         rows = conn.execute(text("""
             SELECT
                 u.id,
@@ -349,16 +349,17 @@ def deactivate_user():
     return jsonify({"success": True})
 
 
-@app.route('/api/admin/classes', methods=['GET'])
-def api_admin_get_classes():
+@app.route('/api/admin/classes')
+def api_admin_classes():
     if 'user_id' not in session or session.get('role') != 'Admin':
         return jsonify({"error": "Unauthorized"}), 401
 
-    conn = get_db()
     try:
+        conn = get_db()
         rows = conn.execute(
             text("SELECT id, nama_kelas, kode_kelas, created_at FROM classes ORDER BY created_at DESC")
         ).fetchall()
+
     except Exception:
         logger.exception("Error fetching admin classes")
         return jsonify({"error": "Gagal mengambil daftar kelas"}), 500
@@ -435,8 +436,8 @@ def api_classes():
     if 'user_id' not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
-    conn = get_db()
     try:
+        conn = get_db()
         rows = conn.execute(
             text(
                 "SELECT id, nama_kelas, kode_kelas, created_at FROM classes "

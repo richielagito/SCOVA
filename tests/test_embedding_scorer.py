@@ -25,7 +25,15 @@ def fake_get_embeddings_texts(texts):
 
 
 def test_embedding_score_basic(monkeypatch):
-    monkeypatch.setattr("uploaditin_backend.utils.embedding_client.get_embeddings", fake_get_embeddings_texts)
+    import uploaditin_backend.utils.embedding_client as ec
+    from uploaditin_backend.utils import embedding_scorer as es
+    print(f"DEBUG: ec is {ec}")
+    print(f"DEBUG: es.embedding_client is {es.embedding_client}")
+    print(f"DEBUG: identity match: {ec is es.embedding_client}")
+    
+    monkeypatch.setattr(ec, "get_embeddings", fake_get_embeddings_texts)
+    print(f"DEBUG: ec.get_embeddings is {ec.get_embeddings}")
+    print(f"DEBUG: es.embedding_client.get_embeddings is {es.embedding_client.get_embeddings}")
 
     teacher = "jawaban 1 = The cat sat on the mat\njawaban 2 = Water is wet"
     student = "jawaban 1 = The cat sat on mat\njawaban 2 = Water is wet indeed"
@@ -44,7 +52,8 @@ def test_embedding_score_basic(monkeypatch):
 
 
 def test_missing_student_answer(monkeypatch):
-    monkeypatch.setattr("uploaditin_backend.utils.embedding_client.get_embeddings", fake_get_embeddings_texts)
+    import uploaditin_backend.utils.embedding_client as ec
+    monkeypatch.setattr(ec, "get_embeddings", fake_get_embeddings_texts)
 
     teacher = "jawaban 1 = Answer one\njawaban 2 = Answer two"
     student = "jawaban 1 = "  # student missing answer 2
@@ -55,7 +64,8 @@ def test_missing_student_answer(monkeypatch):
 
 
 def test_no_questions_parsed(monkeypatch):
-    monkeypatch.setattr("uploaditin_backend.utils.embedding_client.get_embeddings", fake_get_embeddings_texts)
+    import uploaditin_backend.utils.embedding_client as ec
+    monkeypatch.setattr(ec, "get_embeddings", fake_get_embeddings_texts)
 
     teacher = "this has no answers"  # extract_answers will return {}
     student = "some text"

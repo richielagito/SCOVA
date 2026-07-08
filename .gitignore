@@ -1,5 +1,7 @@
 #tests folder cache
 tests/__pycache__/
+**/__pycache__/
+.pytest_cache/
 
 #sisyphus
 .sisyphus
@@ -13,3 +15,8 @@ docs
 #env
 .env
 .env.*
+
+#coverage
+.coverage
+.coverage.*
+htmlcov/

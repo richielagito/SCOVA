@@ -3,11 +3,12 @@ import itertools
 import os
 import pytest
 
-os.environ.setdefault('user', 'test_user')
-os.environ.setdefault('password', 'test_password')
-os.environ.setdefault('host', 'localhost')
-os.environ.setdefault('port', '5432')
-os.environ.setdefault('dbname', 'test_db')
+os.environ.setdefault('DB_USER', 'test_user')
+os.environ.setdefault('DB_PASSWORD', 'test_password')
+os.environ.setdefault('DB_HOST', 'localhost')
+os.environ.setdefault('DB_PORT', '5432')
+os.environ.setdefault('GEMINI_API_KEY', 'dummy-key-for-testing')
+os.environ.setdefault('DB_NAME', 'test_db')
 os.environ['SCORING_ENGINE'] = 'legacy'
 os.environ.setdefault('FLASK_SECRET_KEY', 'test-secret-key-for-tests')
 
@@ -214,3 +215,42 @@ def patch_extract_text_and_score(monkeypatch):
                        lambda t, s, sc: {"feedback": "Mocked pedagogical feedback", "highlights": []})
     
     return calls
+
+
+@pytest.fixture(autouse=True)
+def mock_genai_client(monkeypatch):
+    """Globally mock google.genai.Client to avoid any real API calls."""
+    try:
+        import google.genai
+        from unittest.mock import MagicMock
+        
+        def fake_embed_content(model, contents, **kwargs):
+            mock_response = MagicMock()
+            vecs = []
+            for _ in contents:
+                mock_embedding = MagicMock()
+                mock_embedding.values = [0.1, 0.2, 0.3]
+                vecs.append(mock_embedding)
+            mock_response.embeddings = vecs
+            return mock_response
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.models.embed_content.side_effect = fake_embed_content
+        
+        monkeypatch.setattr(google.genai, "Client", lambda **kwargs: mock_client_instance)
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def mock_embedding_client(monkeypatch):
+    """Globally mock embedding_client.get_embeddings to avoid 429 errors."""
+    try:
+        from uploaditin_backend.utils import embedding_client
+        
+        def fake_get_embeddings(texts, **kwargs):
+            return [[0.1, 0.2, 0.3] for _ in texts]
+            
+        monkeypatch.setattr(embedding_client, "get_embeddings", fake_get_embeddings)
+    except ImportError:
+        pass

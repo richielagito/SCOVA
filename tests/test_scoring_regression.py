@@ -59,7 +59,8 @@ def test_per_question_rounding_before_average(monkeypatch, fixtures):
             return model_vecs
         return student_vecs
 
-    monkeypatch.setattr("uploaditin_backend.utils.embedding_client.get_embeddings", fake_get_embeddings)
+    import uploaditin_backend.utils.embedding_client as ec
+    monkeypatch.setattr(ec, "get_embeddings", fake_get_embeddings)
 
     result = embedding_scorer.embedding_score_submission(teacher, student)
 

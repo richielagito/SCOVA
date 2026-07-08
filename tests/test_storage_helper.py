@@ -7,13 +7,13 @@ class DummyStorage:
     def __init__(self):
         self._store = {}
 
-    def upload(self, path, data):
+    def upload(self, path, data, file_options=None):
         if path in self._store:
             raise Exception("Object already exists")
         self._store[path] = data
         return {"key": path}
 
-    def update(self, path, data):
+    def update(self, path, data, file_options=None):
         self._store[path] = data
         return {"key": path}
 

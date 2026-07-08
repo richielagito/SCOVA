@@ -13,7 +13,7 @@ def _make_file_tuple(tmp_file):
 
 def test_happy_path(client, tmp_file, make_fake_db, patch_upload_and_download, patch_extract_text_and_score, capture_simpan):
     # Prepare DB to return kelas_id, jawaban_path, judul when selecting assignment
-    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1')])
+    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1', None)])
 
     data = {
         'file': (tmp_file[0], tmp_file[1])
@@ -30,6 +30,8 @@ def test_happy_path(client, tmp_file, make_fake_db, patch_upload_and_download, p
     assert rv.status_code == 200
     body = rv.get_json()
     assert body['success'] is True
+    assert body['status'] == 'pending'
+    
     # simpan_ke_postgres should have been called once with list containing dict
     assert len(capture_simpan['args']) == 1
     saved = capture_simpan['args'][0]
@@ -37,14 +39,14 @@ def test_happy_path(client, tmp_file, make_fake_db, patch_upload_and_download, p
     item = saved[0]
     for key in ['name', 'similarity', 'grade', 'user_id', 'kelas_id', 'assignment_id', 'file_path', 'feedback']:
         assert key in item
-    assert item['feedback'] == "Mocked pedagogical feedback"
+    assert item['feedback'] == "Menunggu penilaian guru."
+    assert item['status'] == "pending"
 
 
 def test_storage_download_failure(client, tmp_file, make_fake_db, patch_upload_and_download, patch_extract_text_and_score, monkeypatch):
-    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1')])
+    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1', None)])
 
-    # make download_file raise SupabaseDownloadError when downloading guru file
-    # Use the SupabaseDownloadError exposed on the app module to avoid import path issues in tests
+    # make download_file raise SupabaseDownloadError when downloading murid file (happens during upload)
     SupabaseDownloadError = app_module.SupabaseDownloadError
 
     def bad_download(url, client=None, bucket='uploads'):
@@ -64,13 +66,13 @@ def test_storage_download_failure(client, tmp_file, make_fake_db, patch_upload_a
     assert 'Gagal mendownload' in body.get('error', '') or 'download' in body.get('error', '').lower()
 
 
-def test_lsa_failure_returns_500(client, tmp_file, make_fake_db, patch_upload_and_download, patch_extract_text_and_score, monkeypatch, capture_simpan):
-    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1')])
+def test_extraction_failure_returns_400(client, tmp_file, make_fake_db, patch_upload_and_download, patch_extract_text_and_score, monkeypatch, capture_simpan):
+    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1', None)])
 
-    def bad_score(ref, stu):
-        raise RuntimeError('scorer failed')
+    def bad_extract(path):
+        return None
 
-    monkeypatch.setattr(app_module, 'lsa_similarity', bad_score)
+    monkeypatch.setattr(app_module, 'extract_text_from_any', bad_extract)
 
     file_obj = io.BytesIO(b"dummy content")
     file_obj.name = 'student_submission.pdf'
@@ -79,14 +81,13 @@ def test_lsa_failure_returns_500(client, tmp_file, make_fake_db, patch_upload_an
         'file': (file_obj, 'student_submission.pdf')
     }, content_type='multipart/form-data')
 
-    assert rv.status_code == 500
-    # On scorer failure the endpoint should return 500; ensure nothing was saved to DB
-    # The response body may be HTML from Flask error handler, so avoid json parsing
+    assert rv.status_code == 400
+    assert "Format tidak didukung" in rv.get_json()['error']
     assert len(capture_simpan['args']) == 0
 
 
 def test_db_save_failure_returns_500(client, tmp_file, make_fake_db, patch_upload_and_download, patch_extract_text_and_score, capture_simpan):
-    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1')])
+    make_fake_db([(1, 'https://supabase.test/storage/v1/object/public/uploads/answers/teacher/guru.pdf', 'Soal 1', None)])
     # instruct capture_simpan to raise
     capture_simpan['raise'] = True
 

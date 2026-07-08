@@ -4,8 +4,7 @@ import sys
 
 import pytest
 
-
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "uploaditin_backend"))
+import uploaditin_backend.app as app_module
 
 
 class _FakeResponse:
@@ -37,17 +36,13 @@ class _FakeConn:
 
 
 @pytest.fixture
-def app_module(monkeypatch):
+def app_module_fixture(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SECRET_KEY", "header.payload.signature")
-    # use sys.modules directly (importlib.sys is not present in some type checker views)
-    if "app" in sys.modules:
-        del sys.modules["app"]
-    module = importlib.import_module("app")
-    return module
+    return app_module
 
 
-def test_set_session_valid_token_sets_session(monkeypatch, app_module):
+def test_set_session_valid_token_sets_session(monkeypatch, app_module_fixture):
     def fake_requests_get(url, headers=None, timeout=0):
         assert headers is not None
         assert url == "https://example.supabase.co/auth/v1/user"
@@ -63,10 +58,10 @@ def test_set_session_valid_token_sets_session(monkeypatch, app_module):
             },
         )
 
-    monkeypatch.setattr(app_module.requests, "get", fake_requests_get)
-    monkeypatch.setattr(app_module, "get_db", lambda: _FakeConn(admin_row=None))
+    monkeypatch.setattr(app_module_fixture.requests, "get", fake_requests_get)
+    monkeypatch.setattr(app_module_fixture, "get_db", lambda: _FakeConn(admin_row=None))
 
-    client = app_module.app.test_client()
+    client = app_module_fixture.app.test_client()
     resp = client.post("/set_session", json={"access_token": "token-123"})
 
     assert resp.status_code == 200
@@ -80,30 +75,30 @@ def test_set_session_valid_token_sets_session(monkeypatch, app_module):
         assert "apikey" not in sess
 
 
-def test_set_session_missing_token(monkeypatch, app_module):
-    monkeypatch.setattr(app_module.requests, "get", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("requests.get should not be called")))
+def test_set_session_missing_token(monkeypatch, app_module_fixture):
+    monkeypatch.setattr(app_module_fixture.requests, "get", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("requests.get should not be called")))
 
-    client = app_module.app.test_client()
+    client = app_module_fixture.app.test_client()
     resp = client.post("/set_session", json={})
 
     assert resp.status_code == 400
     assert resp.get_json() == {"error": "No token"}
 
 
-def test_set_session_invalid_token_returns_401(monkeypatch, app_module):
-    monkeypatch.setattr(app_module.requests, "get", lambda *_args, **_kwargs: _FakeResponse(401, {"error": "invalid"}))
-    monkeypatch.setattr(app_module, "get_db", lambda: _FakeConn(admin_row=None))
+def test_set_session_invalid_token_returns_401(monkeypatch, app_module_fixture):
+    monkeypatch.setattr(app_module_fixture.requests, "get", lambda *_args, **_kwargs: _FakeResponse(401, {"error": "invalid"}))
+    monkeypatch.setattr(app_module_fixture, "get_db", lambda: _FakeConn(admin_row=None))
 
-    client = app_module.app.test_client()
+    client = app_module_fixture.app.test_client()
     resp = client.post("/set_session", json={"access_token": "bad-token"})
 
     assert resp.status_code == 401
     assert resp.get_json() == {"error": "Invalid token"}
 
 
-def test_set_session_admin_override(monkeypatch, app_module):
+def test_set_session_admin_override(monkeypatch, app_module_fixture):
     monkeypatch.setattr(
-        app_module.requests,
+        app_module_fixture.requests,
         "get",
         lambda *_args, **_kwargs: _FakeResponse(
             200,
@@ -114,9 +109,9 @@ def test_set_session_admin_override(monkeypatch, app_module):
             },
         ),
     )
-    monkeypatch.setattr(app_module, "get_db", lambda: _FakeConn(admin_row=(1,)))
+    monkeypatch.setattr(app_module_fixture, "get_db", lambda: _FakeConn(admin_row=(1,)))
 
-    client = app_module.app.test_client()
+    client = app_module_fixture.app.test_client()
     resp = client.post("/set_session", json={"access_token": "token-admin"})
 
     assert resp.status_code == 200
